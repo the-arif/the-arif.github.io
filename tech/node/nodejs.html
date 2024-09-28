@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Merriweather', serif;
+            line-height: 1.6;
+            margin: 16px;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1, h2, h3 {
+            font-weight: 400;
+            margin-bottom: 20px;
+        }
+        p {
+            margin-bottom: 8px;
+        }
+        code {
+            background-color: #f9f2f4;
+            padding: 2px 6px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        ul {
+            margin-bottom: 20px;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Unpacking Nodejs </h2>
+    <div>
+        <div style="margin-left: 30%;" >
+            <img style="width: 500px; height: 300px;" src="./Screenshot 2024-09-24 at 10.50.32 PM.png" alt="" srcset="">
+            <p style="margin-left: 20%;" >That's it guys 😀 </p>
+        </div>
+        <div>
+            <h2>Key things to remember:</h2>
+            <li>
+                Node is not truly single threaded.
+            </li>
+            <li>
+                v8 is there for compiling and executing the js part of the code, memory management of js objects.
+            </li>
+            <li>
+                libuv ( comes with 4 threads by default ) reason why nodejs is not truly single threaded.
+            </li>
+            <li>
+                OS handles the actual http request not done by libuv, So sync tasks in event loop will block event loops execution.
+                Node.js Code → libuv (delegates) → OS (handles I/O) → OS notifies libuv → libuv schedules callback in event loop.
+
+            </li>
+            <h4>One tick in nodejs event loop</h4>
+            <ul>
+               
+                <li>
+                    <strong>Timers Phase:</strong>
+                    <p>Executes callbacks scheduled by <code>setTimeout()</code> and <code>setInterval()</code> that are ready to run. This phase checks the timers and executes any callbacks that are due.</p>
+                </li>
+                <li>
+                    <strong>I/O Callbacks Phase:</strong>
+                    <p>Executes callbacks for some I/O operations (e.g., TCP errors, or other types of I/O callbacks). This does not include close callbacks, timers, or <code>setImmediate</code> callbacks.</p>
+                </li>
+                <li>
+                    <strong>Idle, Prepare Phase:</strong>
+                    <p>This phase is for internal use by Node.js and is not typically used for application logic.</p>
+                </li>
+                <li>
+                    <strong>Poll Phase:</strong>
+                    <p>The poll phase retrieves new I/O events; it will block and wait for events when there are no callbacks to execute. It processes events and executes their callbacks. If there are no events and timers, it may move to the next phase.</p>
+                </li>
+                <li>
+                    <strong>Check Phase:</strong>
+                    <p>Executes callbacks scheduled by <code>setImmediate()</code>. This phase runs immediately after the poll phase if there are callbacks to execute.</p>
+                </li>
+                <li>
+                    <strong>Close Callbacks Phase:</strong>
+                    <p>Executes close callbacks (e.g., when a socket is closed).</p>
+                </li>
+            </ul>
+           
+            <li>
+               It's good to run nodejs on cluster mode in production mode. As that way it uses all of the CPU cores. Spin N processes for N number of cores.
+
+            </li>
+        </div>
+    </div>
+    <div style="margin-top: 32px;" >
+        <p>Author: Arif</p>
+        <p>Date: September 22, 2024</p>
+    </div>
+</body>
+</html>
