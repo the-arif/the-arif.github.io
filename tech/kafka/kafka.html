@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kafka Notes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Merriweather', serif;
+            line-height: 1.6;
+            margin: 16px;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1, h2, h3 {
+            font-weight: 400;
+            margin-bottom: 20px;
+        }
+        p {
+            margin-bottom: 8px;
+        }
+        code {
+            background-color: #f9f2f4;
+            padding: 2px 6px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        ul {
+            margin-bottom: 20px;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>KAFKA Notes</h1>
+
+<h2>Topics</h2>
+<p>A topic represents a collection of similar types of messages. A producer can write (publish) messages to multiple topics. Similarly, a consumer can read (subscribe) to messages from multiple topics.</p>
+<ul>
+    <li>Each topic is divided into multiple partitions.</li>
+</ul>
+
+<h2>Partition</h2>
+<h3>Single Partition Storage</h3>
+<p>Each message sent to a Kafka topic is stored in exactly one partition within that topic. This design ensures ordered processing within partitions and efficient, scalable data distribution.</p>
+
+<h3>Partitioning Strategy</h3>
+<p>The partition a message is assigned to is determined by the producer's partitioning strategy, which can be default (hash-based or round-robin) or custom based on application needs.</p>
+
+<h3>Replication vs. Partitioning</h3>
+<ul>
+    <li>Messages are stored in one partition, but each partition can have multiple replicas across different brokers to ensure data durability and availability.</li>
+    <li>For each partition within a topic, one broker is designated as the leader. The leader handles all read (consume) and write (produce) requests for that partition.</li>
+</ul>
+
+<h2>Kafka’s Leader-Follower Replication Model</h2>
+<ul>
+    <li><strong>Leader-Follower Model:</strong> Each partition has one leader (handles all read/write requests) and multiple follower replicas (only replicate data).</li>
+    <li><strong>Consumers Read from Leaders:</strong> Consumers always fetch messages from the leader replica of a partition, never directly from followers.</li>
+    <li><strong>Replication for Fault Tolerance:</strong> Followers replicate data from the leader, ensuring fault tolerance. If the leader fails, one of the in-sync followers is elected as the new leader.</li>
+    <li><strong>Automatic Leader Election:</strong> Kafka automatically elects a new leader from the followers if the current leader goes down.</li>
+    <li><strong>Partition Leadership and Failover:</strong> Consumers automatically reconnect to the new leader if there’s a failover.</li>
+    <li><strong>Replication Factor:</strong> Defines how many replicas of a partition exist across brokers, improving availability.</li>
+</ul>
+
+<h2>Offset</h2>
+<p><strong>Offset:</strong> A unique identifier for each message in a Kafka partition.</p>
+<p><strong>Offset Tracking:</strong> Consumers use offsets to track and commit message reads.</p>
+<ul>
+    <li>Partitions Have Independent Offsets: Each partition maintains its own sequence of offsets.</li>
+    <li>Offset Commit: Consumers can commit offsets to resume processing after failure.</li>
+    <li>Log Retention: Kafka keeps messages for a defined time even after they are consumed.</li>
+    <li>Offset Reset: Consumers can reset offsets to re-read messages from an earlier point (either earliest or latest).</li>
+</ul>
+
+<h3>Steps in Offset Commit</h3>
+<ol>
+    <li><strong>Consumer Reads Messages:</strong> The consumer polls messages from a partition.</li>
+    <li><strong>Processing Messages:</strong> The consumer processes the messages. In manual offset management, the offset is not committed yet.</li>
+    <li><strong>Commit Offset:</strong> 
+        <ul>
+            <li>Automatic Commit: If enabled, the offset will be automatically committed at the interval set by <code>auto.commit.interval.ms</code>.</li>
+            <li>Manual Commit: The consumer calls <code>commitSync()</code> or <code>commitAsync()</code> to commit the offset manually after processing each message or batch of messages.</li>
+        </ul>
+    </li>
+    <li><strong>Offset Stored in Kafka:</strong> When committed, Kafka stores the offset in the <code>__consumer_offsets</code> topic for the corresponding partition and consumer group. This allows Kafka to track the consumer’s progress.</li>
+    <li><strong>Resuming After Failure:</strong> If a consumer crashes or is restarted, Kafka will check the last committed offset from the <code>__consumer_offsets</code> topic and start consuming messages from that offset, avoiding reprocessing of already consumed messages.</li>
+</ol>
+
+<h2>Kafka <- Pinot Ingestion Workflow</h2>
+<p>The ingestion workflow follows these steps:</p>
+<ol>
+    <li><strong>Kafka Consumer Fetches Messages:</strong> The Pinot server, acting as a Kafka consumer, pulls messages from the Kafka topic in near real-time.</li>
+    <li><strong>Message Parsing and Transformation:</strong> The message is parsed according to the table schema defined in Pinot, and transformation functions can be applied.</li>
+    <li><strong>Indexing and Aggregation:</strong> Pinot processes the incoming messages and stores data into in-memory structures, using a columnar storage format and inverted indexes for fast querying.</li>
+    <li><strong>Segment Creation:</strong> Pinot groups messages into segments (logical partitions of data) that are flushed to disk at certain intervals.</li>
+    <li><strong>Push Segments to Deep Storage:</strong> Segments are persisted to deep storage (e.g., HDFS, AWS S3).</li>
+    <li><strong>Handling Real-Time Queries:</strong> Pinot can ingest data and serve queries simultaneously, ensuring that both real-time and historical data are available for queries.</li>
+    <li><strong>Fault Tolerance and Scaling:</strong> Pinot is fault-tolerant, scaling horizontally to consume more Kafka partitions while ensuring no data loss by tracking Kafka consumer offsets.</li>
+</ol>
+
+<h2>Example of Consumer Registration</h2>
+<h3>Scenario</h3>
+<p>You have a Kafka topic named <code>user_activity</code> with 6 partitions. You have 3 Pinot servers (<code>Pinot_1</code>, <code>Pinot_2</code>, and <code>Pinot_3</code>) that will consume from this topic.</p>
+<ol>
+    <li><strong>Configuration:</strong> You configure a RealtimeTable in Pinot with the <code>user_activity</code> Kafka topic and set the consumer group ID to <code>pinot-consumer-group</code>.</li>
+    <li><strong>Starting Pinot:</strong> Each server registers itself with Kafka using the group ID. Kafka assigns the partitions:
+        <ul>
+            <li><code>Pinot_1</code>: Partitions 0, 1</li>
+            <li><code>Pinot_2</code>: Partitions 2, 3</li>
+            <li><code>Pinot_3</code>: Partitions 4, 5</li>
+        </ul>
+    </li>
+    <li><strong>Consuming Messages:</strong> Each Pinot server starts polling Kafka for messages. <code>Pinot_1</code> consumes messages from Partitions 0 and 1, processes them, and commits the offsets to Kafka.</li>
+    <li><strong>Offset Management:</strong> <code>Pinot_1</code> commits its offsets to the <code>__consumer_offsets</code> topic.</li>
+    <li><strong>Rebalancing Example:</strong> If <code>Pinot_2</code> crashes, Kafka triggers a rebalance, assigning Partition 2 to <code>Pinot_1</code> and Partition 3 to <code>Pinot_3</code>.</li>
+</ol>
+
+<h2>Questions:</h2>
+<ol>
+    <li>If messages are read from Kafka and later my leader is dead, will the follower that becomes the leader have the latest offsets from the dead leader?</li>
+    <li>How does Kafka know there is a Pinot server consumer that is consuming, in the Kafka and Pinot example?</li>
+</ol>
+<div style="margin-top: 32px;" >
+    <p>Author: Arif</p>
+    <p>Date: September 28, 2024</p>
+</div>
+
+
+</body>
+</html>
